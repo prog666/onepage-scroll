@@ -27,14 +27,15 @@
     afterMove: null,
     loop: true,
     responsiveFallback: false,
-    direction : 'vertical'
-	};
+    direction : 'vertical',
+    minHeight: false
+  };
 
-	/*------------------------------------------------*/
-	/*  Credit: Eike Send for the awesome swipe event */
-	/*------------------------------------------------*/
+  /*------------------------------------------------*/
+  /*  Credit: Eike Send for the awesome swipe event */
+  /*------------------------------------------------*/
 
-	$.fn.swipeEvents = function() {
+  $.fn.swipeEvents = function() {
       return this.each(function() {
 
         var startX,
@@ -89,38 +90,34 @@
         topPos = 0,
         leftPos = 0,
         lastAnimation = 0,
-        quietPeriod = 500,
+        quietPeriod = 0,
         paginationList = "";
+        lastDirUp = true;
 
     $.fn.transformPage = function(settings, pos, index) {
-      if (typeof settings.beforeMove == 'function') settings.beforeMove(index);
+    if(document.all && !window.atob) {
+        $(this).animate({
+            top: pos + '%'
+        }, settings.animationTime, function() {
+            if(typeof settings.afterMove == 'function') settings.afterMove(index);
+        });
+    } else {
+        $(this).css({
+            "-webkit-transform": "translate3d(0, " + pos + "%, 0)",
+            "-webkit-transition": "all " + settings.animationTime + "ms " + settings.easing,
+            "-moz-transform": "translate3d(0, " + pos + "%, 0)",
+            "-moz-transition": "all " + settings.animationTime + "ms " + settings.easing,
+            "-ms-transform": "translate3d(0, " + pos + "%, 0)",
+            "-ms-transition": "all " + settings.animationTime + "ms " + settings.easing,
+            "transform": "translate3d(0, " + pos + "%, 0)",
+            "transition": "all " + settings.animationTime + "ms " + settings.easing
+        });
 
-      // Just a simple edit that makes use of modernizr to detect an IE8 browser and changes the transform method into
-    	// an top animate so IE8 users can also use this script.
-    	if($('html').hasClass('ie8')){
-        if (settings.direction == 'horizontal') {
-          var toppos = (el.width()/100)*pos;
-          $(this).animate({left: toppos+'px'},settings.animationTime);
-        } else {
-          var toppos = (el.height()/100)*pos;
-          $(this).animate({top: toppos+'px'},settings.animationTime);
-        }
-    	} else{
-    	  $(this).css({
-    	    "-webkit-transform": ( settings.direction == 'horizontal' ) ? "translate3d(" + pos + "%, 0, 0)" : "translate3d(0, " + pos + "%, 0)",
-         "-webkit-transition": "all " + settings.animationTime + "ms " + settings.easing,
-         "-moz-transform": ( settings.direction == 'horizontal' ) ? "translate3d(" + pos + "%, 0, 0)" : "translate3d(0, " + pos + "%, 0)",
-         "-moz-transition": "all " + settings.animationTime + "ms " + settings.easing,
-         "-ms-transform": ( settings.direction == 'horizontal' ) ? "translate3d(" + pos + "%, 0, 0)" : "translate3d(0, " + pos + "%, 0)",
-         "-ms-transition": "all " + settings.animationTime + "ms " + settings.easing,
-         "transform": ( settings.direction == 'horizontal' ) ? "translate3d(" + pos + "%, 0, 0)" : "translate3d(0, " + pos + "%, 0)",
-         "transition": "all " + settings.animationTime + "ms " + settings.easing
-    	  });
-    	}
-      $(this).one('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(e) {
-        if (typeof settings.afterMove == 'function') settings.afterMove(index);
-      });
+        $(this).one('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(e) {
+            if (typeof settings.afterMove == 'function') settings.afterMove(index);
+        });
     }
+};
 
     $.fn.moveDown = function() {
       var el = $(this)
@@ -211,63 +208,96 @@
         el.transformPage(settings, pos, page_index);
       }
     }
+    function disable(){
+      $("body").addClass("disabled-onepage-scroll");
+      $(document).unbind('mousewheel DOMMouseScroll MozMousePixelScroll');
+      el.swipeEvents().unbind("swipeDown swipeUp");
+    }
+    $.fn.disable = function(){
+      disable();
+      responsive = function(){
+        return false;
+      }
+      $.fn.responsive = responsive;
+    }
+      
+    function enable(){
+      if($("body").hasClass("disabled-onepage-scroll")) {
+        $("body").removeClass("disabled-onepage-scroll");
+        $("html, body, .wrapper").animate({ scrollTop: 0 }, "fast");
+      }
 
+
+      el.swipeEvents().bind("swipeDown",  function(event){
+        if (!$("body").hasClass("disabled-onepage-scroll")) event.preventDefault();
+        el.moveUp();
+      }).bind("swipeUp", function(event){
+        if (!$("body").hasClass("disabled-onepage-scroll")) event.preventDefault();
+        el.moveDown();
+      });
+
+      $(document).bind('mousewheel DOMMouseScroll MozMousePixelScroll', function(event) {
+        event.preventDefault();
+        var delta = event.originalEvent.wheelDelta || -event.originalEvent.detail;
+        init_scroll(event, delta);
+      });
+      
+    }
+    $.fn.responsive = responsive;
     function responsive() {
       //start modification
       var valForTest = false;
+      var heightTest = false;
       var typeOfRF = typeof settings.responsiveFallback
+      if(settings.minHeight !== false){
+        var heightMinVal = settings.minHeight();
+        heightTest = heightMinVal === 0;
+      }
+      
+        
+        
 
       if(typeOfRF == "number"){
-      	valForTest = $(window).width() < settings.responsiveFallback;
+        valForTest = $(window).width() < settings.responsiveFallback;
       }
       if(typeOfRF == "boolean"){
-      	valForTest = settings.responsiveFallback;
+        valForTest = settings.responsiveFallback;
       }
       if(typeOfRF == "function"){
-      	valFunction = settings.responsiveFallback();
-      	valForTest = valFunction;
-      	typeOFv = typeof valForTest;
-      	if(typeOFv == "number"){
-      		valForTest = $(window).width() < valFunction;
-      	}
+        valFunction = settings.responsiveFallback();
+        valForTest = valFunction;
+        typeOFv = typeof valForTest;
+        if(typeOFv == "number"){
+          valForTest = $(window).width() < valFunction;
+        }
       }
 
       //end modification
-      if (valForTest) {
-        $("body").addClass("disabled-onepage-scroll");
-        $(document).unbind('mousewheel DOMMouseScroll MozMousePixelScroll');
-        el.swipeEvents().unbind("swipeDown swipeUp");
+      if (valForTest || heightTest) {
+        disable();
       } else {
-        if($("body").hasClass("disabled-onepage-scroll")) {
-          $("body").removeClass("disabled-onepage-scroll");
-          $("html, body, .wrapper").animate({ scrollTop: 0 }, "fast");
-        }
-
-
-        el.swipeEvents().bind("swipeDown",  function(event){
-          if (!$("body").hasClass("disabled-onepage-scroll")) event.preventDefault();
-          el.moveUp();
-        }).bind("swipeUp", function(event){
-          if (!$("body").hasClass("disabled-onepage-scroll")) event.preventDefault();
-          el.moveDown();
-        });
-
-        $(document).bind('mousewheel DOMMouseScroll MozMousePixelScroll', function(event) {
-          event.preventDefault();
-          var delta = event.originalEvent.wheelDelta || -event.originalEvent.detail;
-          init_scroll(event, delta);
-        });
+        enable();
       }
     }
+    
+    
 
 
     function init_scroll(event, delta) {
         deltaOfInterest = delta;
+        var curDirUp;
         var timeNow = new Date().getTime();
+        if (deltaOfInterest < 0) {
+          curDirUp = false;
+        } else {
+          curDirUp = true;
+        }
         // Cancel scroll if currently animating or within quiet period
         if(timeNow - lastAnimation < quietPeriod + settings.animationTime) {
+          if(lastDirUp === curDirUp){
             event.preventDefault();
             return;
+          }
         }
 
         if (deltaOfInterest < 0) {
@@ -275,6 +305,7 @@
         } else {
           el.moveUp()
         }
+        lastDirUp = curDirUp;
         lastAnimation = timeNow;
     }
 
